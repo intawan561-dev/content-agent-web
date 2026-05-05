@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Agent AI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0f0f0f;
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 0.9rem;
+        }
+        .input-box {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        textarea {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 1rem;
+            resize: none;
+            outline: none;
+            min-height: 80px;
+        }
+        textarea::placeholder { color: #555; }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .agent-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .agent-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+        .agent-content {
+            color: #ccc;
+            font-size: 0.9rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            display: none;
+        }
+        .loading {
+            color: #667eea;
+            font-size: 0.85rem;
+            display: none;
+        }
+        .status-bar {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            min-height: 24px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>🤖 Content Agent AI</h1>
+<p class="subtitle">ทีม AI ช่วยสร้าง Content YouTube</p>
+
+<div class="input-box">
+    <textarea id="topic" placeholder="ใส่โจทย์ของคุณตรงนี้... เช่น อยากทำคลิปเกี่ยวกับ AI สำหรับมือใหม่"></textarea>
+</div>
+
+<button class="btn" onclick="startGenerate()" id="startBtn">🚀 เริ่มสร้าง Content</button>
+
+<div class="status-bar" id="status"></div>
+
+<!-- BOSS -->
+<div class="agent-card">
+    <div class="agent-header">👔 BOSS — วางแผนงาน</div>
+    <div class="loading" id="boss-loading">⏳ กำลังวิเคราะห์โจทย์...</div>
+    <div class="agent-content" id="boss-content"></div>
+</div>
+
+<!-- IDEA -->
+<div class="agent-card">
+    <div class="agent-header">💡 IDEA — แนวคิด Content</div>
+    <div class="loading" id="idea-loading">⏳ กำลังคิด concept...</div>
+    <div class="agent-content" id="idea-content"></div>
+</div>
+
+<!-- RES -->
+<div class="agent-card">
+    <div class="agent-header">🔍 RES — ข้อมูลและเทรนด์</div>
+    <div class="loading" id="res-loading">⏳ กำลังหาข้อมูล...</div>
+    <div class="agent-content" id="res-content"></div>
+</div>
+
+<!-- CAP -->
+<div class="agent-card">
+    <div class="agent-header">✍️ CAP — ชื่อ คำอธิบาย Tags</div>
+    <div class="loading" id="cap-loading">⏳ กำลังสร้าง caption...</div>
+    <div class="agent-content" id="cap-content"></div>
+</div>
+
+<script>
+    // เปลี่ยน URL นี้หลัง deploy บน Vercel
+    const API_URL = "http://localhost:5000";
+
+    async function callAgent(agent, topic, context = "") {
+        const res = await fetch(`${API_URL}/api/generate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ topic, agent, context })
+        });
+        const data = await res.json();
+        return data.result || data.error;
+    }
+
+    function showLoading(agent) {
+        document.getElementById(`${agent}-loading`).style.display = "block";
+        document.getElementById(`${agent}-content`).style.display = "none";
+    }
+
+    function showResult(agent, text) {
+        document.getElementById(`${agent}-loading`).style.display = "none";
+        const el = document.getElementById(`${agent}-content`);
+        el.style.display = "block";
+        el.textContent = text;
+    }
+
+    async function startGenerate() {
+        const topic = document.getElementById("topic").value.trim();
+        if (!topic) { alert("กรุณาใส่โจทย์ก่อนนะครับ"); return; }
+
+        const btn = document.getElementById("startBtn");
+        btn.disabled = true;
+
+        ["boss","idea","res","cap"].forEach(a => {
+            document.getElementById(`${a}-loading`).style.display = "none";
+            document.getElementById(`${a}-content`).style.display = "none";
+            document.getElementById(`${a}-content`).textContent = "";
+        });
+
+        try {
+            // BOSS
+            document.getElementById("status").textContent = "👔 BOSS กำลังวางแผน...";
+            showLoading("boss");
+            const bossResult = await callAgent("boss", topic);
+            showResult("boss", bossResult);
+
+            // IDEA
+            document.getElementById("status").textContent = "💡 IDEA กำลังคิด concept...";
+            showLoading("idea");
+            const ideaResult = await callAgent("idea", topic);
+            showResult("idea", ideaResult);
+
+            // RES
+            document.getElementById("status").textContent = "🔍 RES กำลังหาข้อมูล...";
+            showLoading("res");
+            const resResult = await callAgent("res", topic, ideaResult);
+            showResult("res", resResult);
+
+            // CAP
+            document.getElementById("status").textContent = "✍️ CAP กำลังสร้าง caption...";
+            showLoading("cap");
+            const capResult = await callAgent("cap", topic, ideaResult + "\n" + resResult);
+            showResult("cap", capResult);
+
+            document.getElementById("status").textContent = "✅ เสร็จแล้ว!";
+        } catch(e) {
+            document.getElementById("status").textContent = "❌ เกิดข้อผิดพลาด ลองใหม่อีกครั้ง";
+        }
+
+        btn.disabled = false;
+    }
+</script>
+</body>
+</html>
